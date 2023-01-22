@@ -120,6 +120,33 @@ CVAT annotations                             ---> Publication, statistics etc.
   dataset.export('test_dataset', 'coco')
   ```
 
+- Create a custom CVAT-like dataset with video annotation:
+  ```python
+  from datumaro.components.extractor import (DatasetTrackItem,
+    Bbox, LabelCategories, AnnotationType)
+  from datumaro.components.dataset import Dataset
+
+  dataset = Dataset(categories={
+    AnnotationType.label: LabelCategories.from_iterable(['cat', 'dog'])
+  })
+  dataset.put(
+    DatasetTrackItem(
+      id=0,
+      annotations=[
+        Bbox(
+          10, 20, 30, 40,
+          label=0,
+          outside=(1 if frame_id == 279 else 0),  # Marks the end of the track item
+          keyframe=(1 if frame_id in [210, 279] else 0),  # Marks keyframes
+          frame=frame_id,
+        )
+        for frame_id in range(210, 280)
+      ],
+    )
+  )
+  dataset.export('test_dataset', 'cvat')
+  ```
+
 <!--lint enable list-item-bullet-indent-->
 <!--lint enable list-item-indent-->
 

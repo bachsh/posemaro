@@ -28,6 +28,12 @@ class AnnotationType(Enum):
     caption = auto()
     cuboid_3d = auto()
 
+
+class DatasetItemType(Enum):
+    image = auto()
+    track = auto()
+
+
 _COORDINATE_ROUNDING_DIGITS = 2
 
 # @attrs 사용 이유
@@ -337,6 +343,9 @@ class _Shape(Annotation):
     label = attrib(converter=attr.converters.optional(int),
         default=None, kw_only=True)
     z_order = attrib(default=0, validator=default_if_none(int), kw_only=True)
+    frame = attrib(default=None, validator=default_if_none(int), kw_only=True)
+    outside = attrib(default=None, validator=default_if_none(int), kw_only=True)
+    keyframe = attrib(default=None, validator=default_if_none(int), kw_only=True)
 
     def get_area(self):
         raise NotImplementedError()
@@ -673,6 +682,8 @@ DEFAULT_SUBSET_NAME = 'default'
 
 @attrs
 class DatasetItem:
+    item_type = DatasetItemType.image
+
     # id, image, subset, attribute, annotations [mask, points],
     id = attrib(converter=lambda x: str(x).replace('\\', '/'),
         type=str, validator=not_empty)
@@ -680,6 +691,11 @@ class DatasetItem:
     # annotations [extractor [mask, point, polyline, cuboid3d, polygon, bbox, caption]]
     subset = attrib(converter=lambda v: v or DEFAULT_SUBSET_NAME, default=None)
     # subset ='train', 'val', 'test', 'default'
+    label = attrib(
+        converter=attr.converters.optional(int),
+        default=None,
+        kw_only=True,
+    )
 
     # Currently unused
     path = attrib(factory=list, validator=default_if_none(list))
@@ -730,6 +746,10 @@ class DatasetItem:
     def wrap(item, **kwargs):
         return attr.evolve(item, **kwargs)
 
+
+@attrs
+class DatasetTrackItem(DatasetItem):
+    item_type = DatasetItemType.track
 
 CategoriesInfo = Dict[AnnotationType, Categories]
 

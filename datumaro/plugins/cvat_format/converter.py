@@ -13,7 +13,7 @@ import os.path as osp
 from datumaro.components.converter import Converter
 from datumaro.components.dataset import ItemStatus
 from datumaro.components.extractor import (
-    AnnotationType, DatasetItem, LabelCategories,
+    AnnotationType, DatasetItem, LabelCategories, _Shape, DatasetItemType,
 )
 from datumaro.util import cast, pairs
 
@@ -161,25 +161,34 @@ class _SubsetWriter:
 
         self._writer.close_root()
 
-    def _write_item(self, item, index):
+    def _write_item(self, item: DatasetItem, index):
         if not self._context._reindex:
             index = cast(item.attributes.get('frame'), int, index)
-        image_info = OrderedDict([ ("id", str(index)), ])
+        item_info = OrderedDict([ ("id", str(index)), ])
         filename = self._context._make_image_filename(item)
-        image_info["name"] = filename
+        item_info["name"] = filename
+
+        if item.label is not None:
+            label_name = self._get_label(item.label).name
+            item_info["label"] = label_name
+
         if item.has_image:
             size = item.image.size
             if size:
                 h, w = size
-                image_info["width"] = str(w)
-                image_info["height"] = str(h)
+                item_info["width"] = str(w)
+                item_info["height"] = str(h)
 
             if self._context._save_images:
                 self._context._save_image(item,
                     osp.join(self._context._images_dir, filename))
         else:
             log.debug("Item '%s' has no image info", item.id)
-        self._writer.open_image(image_info)
+
+        if item.item_type == DatasetItemType.track:
+            self._writer.open_track(item_info)
+        else:
+            self._writer.open_image(item_info)
 
         for ann in item.annotations:
             if ann.type in {AnnotationType.points, AnnotationType.polyline,
@@ -190,7 +199,10 @@ class _SubsetWriter:
             else:
                 continue
 
-        self._writer.close_image()
+        if item.item_type == DatasetItemType.track:
+            self._writer.close_track()
+        else:
+            self._writer.close_image()
 
     def _write_meta(self):
         label_cat = self._extractor.categories().get(
@@ -240,7 +252,7 @@ class _SubsetWriter:
         return set(chain(label.attributes, label_cat.attributes)) - \
             self._context._builtin_attrs
 
-    def _write_shape(self, shape, item):
+    def _write_shape(self, shape: _Shape, item):
         if shape.label is None:
             log.warning("Item %s: skipping a %s with no label",
                 item.id, shape.type.name)
@@ -270,6 +282,16 @@ class _SubsetWriter:
             ]))
 
         shape_data['z_order'] = str(int(shape.z_order))
+        for attr_name in ['frame', 'outside', 'keyframe']:
+            if getattr(shape, attr_name) is not None:
+                attr_value = getattr(shape, attr_name)
+                shape_data[attr_name] = str(int(attr_value))
+
+        # shape_data['outside'] = str(int(shape.outside))
+        # shape_data['keyframe'] = str(int(shape.keyframe))
+        # if shape.attributes.get('frame') is not None:
+        #     shape_data['frame'] = str(shape.attributes.pop('frame'))
+
         if shape.group:
             shape_data['group_id'] = str(shape.group)
 
