@@ -1,3 +1,0 @@
-[console_scripts]
-datum = datumaro.cli.__main__:main
-
